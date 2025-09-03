@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>Download Page</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>/* CSS is identical to the previous version */ body { font-family: 'Roboto', sans-serif; background-color: #2d2d2d; color: #ccc; margin: 0; padding: 20px; } .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 5px; } h1 { font-size: 2em; color: #fff; } p { line-height: 1.6; } a { color: #4CAF50; text-decoration: none; } .info-box, .screenshots-box, .download-box { margin-bottom: 30px; } .info-box ul { list-style: none; padding: 0; } .info-box li { margin-bottom: 8px; } .screenshots-grid { display: grid; grid-template-columns: 1fr; gap: 10px; } .screenshots-grid img { width: 100%; border-radius: 4px; } .download-section h3 { text-align: center; color: #4CAF50; font-size: 1.5em; margin: 20px 0; } .download-link { text-align: center; margin-bottom: 20px; } .download-link p { margin: 5px 0; font-size: 1.1em; color: #fff;} .download-btn { display: inline-block; background: linear-gradient(to bottom, #4CAF50, #45a049); color: #fff; padding: 12px 30px; border-radius: 5px; font-size: 1.1em; font-weight: bold; margin-top: 10px; border-bottom: 3px solid #388E3C; }</style>
+</head>
+<body>
+    <div id="content" class="container" style="display:none;">
+        <h1 id="title"></h1>
+        <p id="description"></p>
+        <div class="info-box">
+            <h2>Movie Info:</h2>
+            <ul>
+                <li><strong>IMDb Rating:-</strong> <span id="imdb-rating"></span></li>
+                <li><strong>Movie Name:</strong> <span id="movie-name"></span></li>
+                <li><strong>Language:</strong> <span id="language"></span></li>
+                <li><strong>Released Year:</strong> <span id="release-year"></span></li>
+            </ul>
+        </div>
+        <div class="screenshots-box">
+            <h2>Screenshots:</h2>
+            <div id="screenshots-grid" class="screenshots-grid"></div>
+        </div>
+        <div id="download-links" class="download-box"></div>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        const config = { apiKey: "AIzaSyAzTaPIpIDRmzRgPDw9lmAVaM6Rwx4VIy0", authDomain: "sadabefy.firebaseapp.com", databaseURL: "https://sadabefy-default-rtdb.firebaseio.com", projectId: "sadabefy", storageBucket: "sadabefy.appspot.com", messagingSenderId: "891450651440", appId: "1:891450651440:web:113acea137e2cd5db6cef5" };
+        const app = initializeApp(config);
+        const db = getDatabase(app);
+
+        const params = new URLSearchParams(window.location.search);
+        const movieId = params.get('id');
+
+        if (movieId) {
+            get(ref(db, 'movies/' + movieId)).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const movie = snapshot.val();
+                    const year = new Date(movie.releaseDate).getFullYear();
+                    document.title = `Download ${movie.title} (${year})`;
+                    document.getElementById('title').textContent = `Download ${movie.title} (${year}) Hindi Full Movie`;
+                    document.getElementById('description').innerHTML = `Download <strong>${movie.title}</strong> in high quality.`;
+                    document.getElementById('imdb-rating').textContent = movie.imdbRating || 'N/A';
+                    document.getElementById('movie-name').textContent = movie.title;
+                    document.getElementById('language').textContent = movie.language || 'N/A';
+                    document.getElementById('release-year').textContent = year;
+                    if(movie.screenshots && movie.screenshots.length > 0) {
+                        movie.screenshots.forEach(url => { document.getElementById('screenshots-grid').innerHTML += `<img src="${url}">`; });
+                    }
+                    const qualities = { p480: "480p", p720: "720p", p1080: "1080p", p4k: "2160p (4K)"};
+                    let linksHTML = '';
+                    for (const key in qualities) {
+                        if (movie.downloadLinks && movie.downloadLinks[key]) {
+                            linksHTML += `<div class="download-section"><h3>${qualities[key]}</h3><div class="download-link"><p>${movie.title} - ${qualities[key]}</p><a href="${movie.downloadLinks[key]}" class="download-btn" download>DOWNLOAD NOW</a></div></div>`;
+                        }
+                    }
+                    document.getElementById('download-links').innerHTML = linksHTML;
+                    document.getElementById('content').style.display = 'block';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Panel - SADABEFY</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f0f0f; color:#fff; margin:0; }
+    header { background:#1c1c1c; padding:15px; text-align:center; border-bottom:2px solid #222; }
+    header h1 { margin:0; color:#FFD700; font-size:22px; }
+
+    .container { max-width:500px; margin:20px auto; padding:20px; background:#1c1c1c; border-radius:10px; }
+    label { display:block; margin:10px 0 4px; font-weight:bold; }
+    input, textarea { width:100%; padding:10px; border:none; border-radius:6px; margin-bottom:12px; font-size:14px; background:#171717; color:#fff; }
+    textarea { resize:vertical; min-height:80px; }
+
+    button { padding:12px; width:100%; background:#FFD700; border:none; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:10px; }
+    button:hover { background:#e6c200; }
+
+    .results-box { background:#222; border-radius:6px; max-height:200px; overflow-y:auto; display:none; margin-top:-10px; margin-bottom:12px; }
+    .result-item { padding:8px 10px; border-bottom:1px solid #333; cursor:pointer; }
+    .result-item:hover { background:#333; }
+
+    .screenshot-field { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .screenshot-field input { flex:1; padding:8px; border:none; border-radius:6px; background:#171717; color:#fff; }
+    .remove-btn { background:red; border:none; border-radius:6px; padding:6px 10px; color:#fff; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🎬 Admin Panel - SADABEFY</h1>
+  </header>
+
+  <div class="container">
+    <label>Search Movie (TMDb)</label>
+    <input type="text" id="searchInput" placeholder="Search movies like KGF, Avatar...">
+    <div class="results-box" id="resultsBox"></div>
+
+    <label>Title</label>
+    <input type="text" id="title">
+
+    <label>Poster URL</label>
+    <input type="text" id="posterUrl">
+
+    <label>Rating (IMDb)</label>
+    <input type="text" id="imdbRating">
+
+    <label>Language</label>
+    <input type="text" id="language">
+
+    <label>Overview</label>
+    <textarea id="overview"></textarea>
+
+    <h3>Screenshots</h3>
+    <div id="screenshotsContainer"></div>
+    <button type="button" id="addScreenshotBtn">➕ Add Screenshot</button>
+
+    <h3>Download Links</h3>
+    <label>480p</label>
+    <input type="text" id="link480" placeholder="https://...">
+    <label>720p</label>
+    <input type="text" id="link720" placeholder="https://...">
+    <label>1080p</label>
+    <input type="text" id="link1080" placeholder="https://...">
+    <label>4K</label>
+    <input type="text" id="link4k" placeholder="https://...">
+
+    <button id="saveBtn">Save Movie</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBolQwr0QjNkSIdnWwa0DaNMtlpWD8kSJU",
+  authDomain: "sdab-db393.firebaseapp.com",
+  databaseURL: "https://sdab-db393-default-rtdb.firebaseio.com",
+  projectId: "sdab-db393",
+  storageBucket: "sdab-db393.firebasestorage.app",
+  messagingSenderId: "1077786040028",
+  appId: "1:1077786040028:web:9f3cac30f4f9f1c3528619",
+  measurementId: "G-CQ4JGF178H"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // 🔑 TMDb API Key
+    const TMDB_KEY = "07262acf476ffeb37dece0e0e9380657";
+
+    const searchInput = document.getElementById("searchInput");
+    const resultsBox = document.getElementById("resultsBox");
+    const title = document.getElementById("title");
+    const posterUrl = document.getElementById("posterUrl");
+    const imdbRating = document.getElementById("imdbRating");
+    const language = document.getElementById("language");
+    const overview = document.getElementById("overview");
+    const addScreenshotBtn = document.getElementById("addScreenshotBtn");
+    const screenshotsContainer = document.getElementById("screenshotsContainer");
+    const link480 = document.getElementById("link480");
+    const link720 = document.getElementById("link720");
+    const link1080 = document.getElementById("link1080");
+    const link4k = document.getElementById("link4k");
+    const saveBtn = document.getElementById("saveBtn");
+
+    // 🔍 TMDb search suggestions
+    searchInput.addEventListener("keyup", async () => {
+      const q = searchInput.value.trim();
+      if (q.length < 2) {
+        resultsBox.style.display = "none";
+        return;
+      }
+      try {
+        const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(q)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        resultsBox.innerHTML = "";
+        if (!data.results || !data.results.length) {
+          resultsBox.style.display = "none";
+          return;
+        }
+
+        resultsBox.style.display = "block";
+        data.results.slice(0, 10).forEach(m => {
+          const div = document.createElement("div");
+          div.className = "result-item";
+          div.textContent = `${m.title} (${m.release_date ? m.release_date.slice(0,4) : "N/A"})`;
+
+          div.addEventListener("click", () => {
+            title.value = m.title;
+            posterUrl.value = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : "";
+            imdbRating.value = m.vote_average ? m.vote_average.toFixed(1) : "";
+            language.value = m.original_language || "";
+            overview.value = m.overview || "";
+            resultsBox.style.display = "none";
+          });
+
+          resultsBox.appendChild(div);
+        });
+      } catch (err) {
+        console.error("TMDb fetch error:", err);
+        resultsBox.innerHTML = `<div style="color:red">API Error! Check console.</div>`;
+        resultsBox.style.display = "block";
+      }
+    });
+
+    // ➕ Add Screenshot
+    addScreenshotBtn.addEventListener("click", () => {
+      const div = document.createElement("div");
+      div.className = "screenshot-field";
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Screenshot URL (https://...)";
+
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "✖";
+      removeBtn.className = "remove-btn";
+      removeBtn.onclick = () => div.remove();
+
+      div.appendChild(input);
+      div.appendChild(removeBtn);
+      screenshotsContainer.appendChild(div);
+    });
+
+    // 💾 Save Movie
+    saveBtn.addEventListener("click", () => {
+      const screenshotInputs = screenshotsContainer.querySelectorAll("input");
+      const screenshots = Array.from(screenshotInputs).map(i => i.value.trim()).filter(v => v);
+
+      const downloadLinks = {
+        p480: link480.value.trim(),
+        p720: link720.value.trim(),
+        p1080: link1080.value.trim(),
+        p4k: link4k.value.trim()
+      };
+
+      const movie = {
+        title: title.value,
+        posterUrl: posterUrl.value,
+        imdbRating: imdbRating.value,
+        language: language.value,
+        overview: overview.value,
+        screenshots: screenshots,
+        downloadLinks: downloadLinks,
+        releaseDate: new Date().toISOString()
+      };
+
+      const moviesRef = ref(db, "movies");
+      const newRef = push(moviesRef);
+      set(newRef, movie);
+
+      alert("✅ Movie saved successfully!");
+      title.value = posterUrl.value = imdbRating.value = language.value = overview.value = "";
+      screenshotsContainer.innerHTML = "";
+      link480.value = link720.value = link1080.value = link4k.value = "";
+    });
+  </script>
+</body>
+</html>
